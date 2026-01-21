@@ -19,13 +19,23 @@ Your personality: Warm, patient, respectful, and peer-like but wise.
 `;
 
 export class GeminiService {
-  private ai: GoogleGenAI;
+  private ai: GoogleGenAI | null = null;
 
   constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+      console.error("DEVELOPER ERROR: API_KEY is missing from environment variables.");
+    } else {
+      this.ai = new GoogleGenAI({ apiKey });
+    }
   }
 
   async getGuidanceStream(history: Message[], userInput: string, onChunk: (text: string) => void) {
+    if (!this.ai) {
+      onChunk("I'm sorry, I'm not configured properly to talk yet. Please make sure the API key is set in the environment variables.");
+      return "";
+    }
+
     try {
       const contents = history.map(msg => ({
         role: msg.role === 'assistant' ? 'model' : 'user',
@@ -61,8 +71,9 @@ export class GeminiService {
     }
   }
 
-  // Fallback for non-streaming calls if needed
   async getGuidance(history: Message[], userInput: string): Promise<string> {
+    if (!this.ai) return "Configuration error: Missing API Key.";
+
     try {
       const contents = history.map(msg => ({
         role: msg.role === 'assistant' ? 'model' : 'user',
