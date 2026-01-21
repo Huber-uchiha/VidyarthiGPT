@@ -8,32 +8,40 @@ Your goal is to provide emotional comfort, academic clarity, and career guidance
 You are NOT a generic search engine or a homework solver. 
 
 GUIDELINES:
-1. FOCUS ON GUIDANCE, NOT ANSWERS: If a student asks for a math answer or an essay, gently explain that your role is to guide them through the process or help them manage their stress, not to do the work for them.
-2. EMOTIONAL SAFETY: Always acknowledge the student's feelings first (e.g., "I can hear that you're feeling overwhelmed, and that's okay.").
-3. NON-JUDGMENTAL: Never criticize a student's confusion or choices.
-4. CALM & SIMPLE: Use simple, reassuring language. Avoid complex jargon.
-5. SAFETY FIRST: If a student mentions self-harm, severe depression, or danger, immediately provide empathy and strongly encourage them to seek professional help or call a helpline. State clearly that you are an AI and not a substitute for professional mental health support.
-6. EMPOWERMENT: Encourage small, manageable steps.
-
-Your personality: Warm, patient, respectful, and peer-like but wise.
+1. FOCUS ON GUIDANCE, NOT ANSWERS.
+2. EMOTIONAL SAFETY: Always acknowledge the student's feelings first.
+3. NON-JUDGMENTAL & CALM.
+4. SAFETY FIRST: Provide help for self-harm or danger.
 `;
 
 export class GeminiService {
   private ai: GoogleGenAI | null = null;
 
   constructor() {
+    this.init();
+  }
+
+  private init() {
     const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      console.error("DEVELOPER ERROR: API_KEY is missing from environment variables.");
-    } else {
+    if (apiKey && apiKey !== "undefined") {
       this.ai = new GoogleGenAI({ apiKey });
+    } else {
+      console.error("VidyarthiGPT Error: API_KEY is missing. Check your Environment Variables.");
     }
+  }
+
+  hasApiKey(): boolean {
+    const key = process.env.API_KEY;
+    return !!key && key !== "undefined";
   }
 
   async getGuidanceStream(history: Message[], userInput: string, onChunk: (text: string) => void) {
     if (!this.ai) {
-      onChunk("I'm sorry, I'm not configured properly to talk yet. Please make sure the API key is set in the environment variables.");
-      return "";
+      this.init(); // Try to re-init in case environment changed
+      if (!this.ai) {
+        onChunk("CONFIG_ERROR: My thinking core is missing its API Key. Please add it to your website settings.");
+        return "";
+      }
     }
 
     try {
@@ -53,7 +61,6 @@ export class GeminiService {
         config: {
           systemInstruction: SYSTEM_INSTRUCTION,
           temperature: 0.7,
-          topP: 0.95,
         }
       });
 
@@ -66,39 +73,8 @@ export class GeminiService {
       return fullText;
     } catch (error) {
       console.error("Gemini API Error:", error);
-      onChunk("I encountered a small error while thinking. Could you try sharing that with me again? I'm listening.");
+      onChunk("I encountered a connection issue. Please check your internet or API key quota.");
       return "";
-    }
-  }
-
-  async getGuidance(history: Message[], userInput: string): Promise<string> {
-    if (!this.ai) return "Configuration error: Missing API Key.";
-
-    try {
-      const contents = history.map(msg => ({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }]
-      }));
-
-      contents.push({
-        role: 'user',
-        parts: [{ text: userInput }]
-      });
-
-      const response = await this.ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: contents,
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-          temperature: 0.7,
-          topP: 0.95,
-        }
-      });
-
-      return response.text || "I'm sorry, I'm having a bit of trouble connecting right now.";
-    } catch (error) {
-      console.error("Gemini API Error:", error);
-      return "I encountered a small error while thinking.";
     }
   }
 }

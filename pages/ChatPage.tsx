@@ -18,6 +18,7 @@ const ChatPage: React.FC = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState<string>("");
+  const [hasError, setHasError] = useState(!geminiService.hasApiKey());
   const scrollRef = useRef<HTMLDivElement>(null);
   const initializedRef = useRef(false);
 
@@ -38,6 +39,12 @@ const ChatPage: React.FC = () => {
     const trimmedInput = text.trim();
     if (!trimmedInput || isLoading) return;
 
+    // Check key again before sending
+    if (!geminiService.hasApiKey()) {
+      setHasError(true);
+      return;
+    }
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -50,7 +57,6 @@ const ChatPage: React.FC = () => {
     setIsLoading(true);
     setStreamingMessage("");
 
-    // Use the streaming service
     const finalContent = await geminiService.getGuidanceStream(
       messages, 
       trimmedInput, 
@@ -62,7 +68,7 @@ const ChatPage: React.FC = () => {
     const assistantMessage: Message = {
       id: (Date.now() + 1).toString(),
       role: 'assistant',
-      content: finalContent || "I'm sorry, I couldn't process that properly. Could you try again?",
+      content: finalContent || "I'm sorry, I couldn't process that. Please check your configuration.",
       timestamp: new Date(),
     };
 
@@ -80,14 +86,18 @@ const ChatPage: React.FC = () => {
             <h2 className="text-lg font-bold text-[var(--text-main)] font-heading leading-tight">VidyarthiGPT</h2>
             <div className="flex items-center">
               <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>
-              <span className="text-xs text-[var(--text-muted)]">Here to guide</span>
+              <span className="text-xs text-[var(--text-muted)]">Active Assistance</span>
             </div>
           </div>
         </div>
-        <div className="hidden sm:flex items-center px-4 py-1.5 bg-[var(--card-bg)] border border-[var(--border)] rounded-full text-[11px] text-[var(--text-muted)] safe-shadow">
-          <span className="mr-2">ℹ️ Guidance-only ecosystem</span>
-        </div>
       </header>
+
+      {hasError && (
+        <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-sm animate-fade-in-up">
+          <p className="font-bold mb-1">⚠️ Setup Required</p>
+          <p>Your API Key is missing. If you've deployed to Vercel, make sure you added <strong>API_KEY</strong> to your Environment Variables and redeployed.</p>
+        </div>
+      )}
 
       <div 
         ref={scrollRef}
@@ -119,14 +129,6 @@ const ChatPage: React.FC = () => {
       </div>
 
       <div className="mt-auto shrink-0 space-y-3">
-        {/* Safety Strip */}
-        <div className="flex items-center justify-center space-x-4 py-2 border-t border-[var(--border)]">
-          <span className="text-[11px] text-[var(--text-muted)]">Feeling overwhelmed?</span>
-          <Link to="/helplines" className="text-[11px] font-semibold text-[var(--primary)] hover:underline">
-            Help & Helplines
-          </Link>
-        </div>
-
         <div className="relative">
           <textarea
             value={input}
@@ -137,14 +139,14 @@ const ChatPage: React.FC = () => {
                 handleSend();
               }
             }}
-            placeholder="Share what's on your mind... (Ask for guidance, not answers)"
+            disabled={hasError}
+            placeholder={hasError ? "Setup API key to start chatting..." : "Share what's on your mind..."}
             rows={2}
-            className="w-full bg-[var(--card-bg)] border border-[var(--border)] rounded-3xl px-6 py-4 pr-16 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 transition-all resize-none safe-shadow placeholder:text-[var(--text-muted)] text-[var(--text-main)]"
+            className="w-full bg-[var(--card-bg)] border border-[var(--border)] rounded-3xl px-6 py-4 pr-16 focus:outline-none focus:ring-2 focus:ring-[var(--primary)]/20 transition-all resize-none safe-shadow placeholder:text-[var(--text-muted)] text-[var(--text-main)] disabled:opacity-50"
           />
           <button
             onClick={() => handleSend()}
-            disabled={!input.trim() || isLoading}
-            aria-label="Send Message"
+            disabled={!input.trim() || isLoading || hasError}
             className="absolute right-3 bottom-3 p-3 bg-[var(--primary)] text-white rounded-2xl disabled:opacity-30 transition-all hover:bg-[var(--primary)]/90 active:scale-95 safe-shadow"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
